@@ -1,14 +1,11 @@
-/*
-Copyright (c) by respective owners including Yahoo!, Microsoft, and
-individual contributors. All rights reserved.  Released under a BSD (revised)
-license as described in the file LICENSE.
- */
+// Copyright (c) by respective owners including Yahoo!, Microsoft, and
+// individual contributors. All rights reserved. Released under a BSD (revised)
+// license as described in the file LICENSE.
 #include <sstream>
-#include <float.h>
+#include <cfloat>
 #include "reductions.h"
 #include "vw.h"
 
-using namespace std;
 using namespace VW::config;
 
 struct multi_oaa
@@ -43,8 +40,8 @@ void predict_or_learn(multi_oaa& o, LEARNER::single_learner& base, example& ec)
       preds.label_v.push_back(i);
   }
   if (is_learn && multilabel_index < multilabels.label_v.size())
-    cout << "label " << multilabels.label_v[multilabel_index] << " is not in {0," << o.k - 1
-         << "} This won't work right." << endl;
+    std::cout << "label " << multilabels.label_v[multilabel_index] << " is not in {0," << o.k - 1
+              << "} This won't work right." << std::endl;
 
   ec.pred.multilabels = preds;
   ec.l.multilabels = multilabels;
@@ -67,10 +64,10 @@ LEARNER::base_learner* multilabel_oaa_setup(options_i& options, vw& all)
     return nullptr;
 
   LEARNER::learner<multi_oaa, example>& l = LEARNER::init_learner(data, as_singleline(setup_base(options, all)),
-      predict_or_learn<true>, predict_or_learn<false>, data->k, prediction_type::multilabels);
+      predict_or_learn<true>, predict_or_learn<false>, data->k, prediction_type_t::multilabels);
   l.set_finish_example(finish_example);
   all.p->lp = MULTILABEL::multilabel;
-  all.label_type = label_type::multi;
+  all.label_type = label_type_t::multi;
   all.delete_prediction = MULTILABEL::multilabel.delete_label;
 
   return make_base(l);

@@ -1,5 +1,10 @@
+// Copyright (c) by respective owners including Yahoo!, Microsoft, and
+// individual contributors. All rights reserved. Released under a BSD (revised)
+// license as described in the file LICENSE.
+
 #include <vector>
 #ifdef _WIN32
+#define NOMINMAX
 #include <WinSock2.h>
 #ifndef SHUT_RD
 #define SHUT_RD SD_RECEIVE
@@ -20,7 +25,6 @@
 #include "network.h"
 #include "reductions.h"
 
-using namespace std;
 using namespace VW::config;
 
 struct sender
@@ -31,9 +35,17 @@ struct sender
   example** delay_ring;
   size_t sent_index;
   size_t received_index;
+
+  ~sender()
+  {
+    buf->files.delete_v();
+    buf->space.delete_v();
+    free(delay_ring);
+    delete buf;
+  }
 };
 
-void open_sockets(sender& s, string host)
+void open_sockets(sender& s, std::string host)
 {
   s.sd = open_socket(host.c_str());
   s.buf = new io_buf();
@@ -89,17 +101,9 @@ void end_examples(sender& s)
   shutdown(s.buf->files[0], SHUT_WR);
 }
 
-void finish(sender& s)
-{
-  s.buf->files.delete_v();
-  s.buf->space.delete_v();
-  free(s.delay_ring);
-  delete s.buf;
-}
-
 LEARNER::base_learner* sender_setup(options_i& options, vw& all)
 {
-  string host;
+  std::string host;
 
   option_group_definition sender_options("Network sending");
   sender_options.add(make_option("sendto", host).keep().help("send examples to <host>"));
@@ -118,7 +122,6 @@ LEARNER::base_learner* sender_setup(options_i& options, vw& all)
   s->delay_ring = calloc_or_throw<example*>(all.p->ring_size);
 
   LEARNER::learner<sender, example>& l = init_learner(s, learn, learn, 1);
-  l.set_finish(finish);
   l.set_finish_example(finish_example);
   l.set_end_examples(end_examples);
   return make_base(l);

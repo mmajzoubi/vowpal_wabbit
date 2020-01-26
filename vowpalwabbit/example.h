@@ -1,12 +1,10 @@
-/*
-Copyright (c) by respective owners including Yahoo!, Microsoft, and
-individual contributors. All rights reserved.  Released under a BSD
-license as described in the file LICENSE.
- */
+// Copyright (c) by respective owners including Yahoo!, Microsoft, and
+// individual contributors. All rights reserved. Released under a BSD (revised)
+// license as described in the file LICENSE.
 
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 #include "v_array.h"
 #include "no_label.h"
 #include "simple_label.h"
@@ -24,24 +22,8 @@ license as described in the file LICENSE.
 #include <vector>
 #include "prob_dist_cont.h"
 
-const unsigned char default_namespace = 32;
-const unsigned char wap_ldf_namespace = 126;
-const unsigned char history_namespace = 127;
-const unsigned char constant_namespace = 128;
-const unsigned char nn_output_namespace = 129;
-const unsigned char autolink_namespace = 130;
-const unsigned char neighbor_namespace =
-    131;  // this is \x83 -- to do quadratic, say "-q a`printf "\x83"` on the command line
-const unsigned char affix_namespace = 132;         // this is \x84
-const unsigned char spelling_namespace = 133;      // this is \x85
-const unsigned char conditioning_namespace = 134;  // this is \x86
-const unsigned char dictionary_namespace = 135;    // this is \x87
-const unsigned char node_id_namespace = 136;       // this is \x88
-const unsigned char message_namespace = 137;       // this is \x89
-const unsigned char ccb_slot_namespace = 139;
-const unsigned char ccb_id_namespace = 140;
-
-typedef union {
+typedef union
+{
   no_label::no_label empty;
   label_data simple;
   MULTICLASS::label_t multi;
@@ -59,7 +41,8 @@ inline void delete_scalars(void* v)
   preds->delete_v();
 }
 
-typedef union {
+typedef union
+{
   float scalar;
   v_array<float> scalars;           // a sequence of scalar predictions
   ACTION_SCORE::action_scores a_s;  // a sequence of classes with scores.  Also used for probabilities.
@@ -121,11 +104,11 @@ flat_example* flatten_example(vw& all, example* ec);
 flat_example* flatten_sort_example(vw& all, example* ec);
 void free_flatten_example(flat_example* fec);
 
-inline int example_is_newline(example& ec)
+inline int example_is_newline(example const& ec)
 {  // if only index is constant namespace or no index
-  if (ec.tag.size() > 0)
+  if (!ec.tag.empty())
     return false;
-  return ((ec.indices.size() == 0) || ((ec.indices.size() == 1) && (ec.indices.last() == constant_namespace)));
+  return ((ec.indices.empty()) || ((ec.indices.size() == 1) && (ec.indices.last() == constant_namespace)));
 }
 
 inline bool valid_ns(char c) { return !(c == '|' || c == ':'); }
@@ -143,8 +126,6 @@ typedef std::vector<example*> multi_ex;
 
 namespace VW
 {
-void clear_seq_and_finish_examples(vw& all, multi_ex& ec_seq);
-
 void return_multiple_example(vw& all, v_array<example*>& examples);
 }  // namespace VW
 std::string features_to_string(const example& ec);

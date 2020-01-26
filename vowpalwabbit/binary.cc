@@ -1,8 +1,11 @@
-﻿#include <float.h>
+// Copyright (c) by respective owners including Yahoo!, Microsoft, and
+// individual contributors. All rights reserved. Released under a BSD (revised)
+// license as described in the file LICENSE.
+
+#include <cfloat>
 #include "reductions.h"
 #include "debug_log.h"
 
-using namespace std;
 using namespace VW::config;
 
 VW_DEBUG_ENABLE(false);
@@ -34,7 +37,7 @@ void predict_or_learn(char&, LEARNER::single_learner& base, example& ec)
   if (ec.l.simple.label != FLT_MAX)
   {
     if (fabs(ec.l.simple.label) != 1.f)
-      cout << "You are using label " << ec.l.simple.label << " not -1 or 1 as loss function expects!" << endl;
+      std::cout << "You are using label " << ec.l.simple.label << " not -1 or 1 as loss function expects!" << std::endl;
     else if (ec.l.simple.label == ec.pred.scalar)
       ec.loss = 0.;
     else

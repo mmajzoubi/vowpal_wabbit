@@ -1,12 +1,12 @@
-/*
-Copyright (c) by respective owners including Yahoo!, Microsoft, and
-individual contributors. All rights reserved.  Released under a BSD (revised)
-license as described in the file LICENSE.
- */
+// Copyright (c) by respective owners including Yahoo!, Microsoft, and
+// individual contributors. All rights reserved. Released under a BSD (revised)
+// license as described in the file LICENSE.
+
 /*
 The algorithm here is generally based on Nocedal 1980, Liu and Nocedal 1989.
 Implementation by Miro Dudik.
  */
+#include <cmath>
 #include <fstream>
 #include <float.h>
 #ifndef _WIN32
@@ -20,8 +20,8 @@ Implementation by Miro Dudik.
 #include "reductions.h"
 #include "gd.h"
 #include "vw_exception.h"
+#include <exception>
 
-using namespace std;
 using namespace LEARNER;
 using namespace VW::config;
 
@@ -41,7 +41,7 @@ using namespace VW::config;
 #define LEARN_CURV 1
 #define LEARN_CONV 2
 
-class curv_exception : public exception
+class curv_exception : public std::exception
 {
 } curv_ex;
 
@@ -56,7 +56,7 @@ class curv_exception : public exception
 // w[2] = step direction
 // w[3] = preconditioner
 
-const float max_precond_ratio = 10000.f;
+constexpr float max_precond_ratio = 10000.f;
 
 struct bfgs
 {
@@ -102,9 +102,17 @@ struct bfgs
   bool first_pass;
   bool gradient_pass;
   bool preconditioner_pass;
+
+  ~bfgs()
+  {
+    predictions.delete_v();
+    free(mem);
+    free(rho);
+    free(alpha);
+  }
 };
 
-const char* curv_message =
+constexpr const char* curv_message =
     "Zero or negative curvature detected.\n"
     "To increase curvature you can increase regularization or rescale features.\n"
     "It is also possible that you have reached numerical accuracy\n"
@@ -135,7 +143,7 @@ void reset_state(vw& all, bfgs& b, bool zero)
 // w[2] = step direction
 // w[3] = preconditioner
 
-bool test_example(example& ec) { return ec.l.simple.label == FLT_MAX; }
+constexpr bool test_example(example& ec) noexcept { return ec.l.simple.label == FLT_MAX; }
 
 float bfgs_predict(vw& all, example& ec)
 {
@@ -280,7 +288,7 @@ void bfgs_iter_middle(vw& all, bfgs& b, float* mem, double* rho, double* alpha, 
 
     float beta = (float)(g_Hy / g_Hg);
 
-    if (beta < 0.f || nanpattern(beta))
+    if (beta < 0.f || std::isnan(beta))
       beta = 0.f;
 
     for (typename T::iterator w = weights.begin(); w != weights.end(); ++w)
@@ -513,7 +521,7 @@ void finalize_preconditioner(vw& /* all */, bfgs& b, float regularization, T& we
 
   for (typename T::iterator w = weights.begin(); w != weights.end(); ++w)
   {
-    if (infpattern(*w) || *w > max_precond)
+    if (std::isinf(*w) || *w > max_precond)
       (&(*w))[W_COND] = max_precond;
   }
 }
@@ -714,7 +722,7 @@ int process_pass(vw& all, bfgs& b)
     /********************************************************************/
     /* B0) DERIVATIVE ZERO: MINIMUM FOUND *******************************/
     /********************************************************************/
-    if (nanpattern((float)wolfe1))
+    if (std::isnan((float)wolfe1))
     {
       fprintf(stderr, "\n");
       fprintf(stdout, "Derivative 0 detected.\n");
@@ -747,7 +755,7 @@ int process_pass(vw& all, bfgs& b)
     else
     {
       double rel_decrease = (b.previous_loss_sum - b.loss_sum) / b.previous_loss_sum;
-      if (!nanpattern((float)rel_decrease) && b.backstep_on && fabs(rel_decrease) < b.rel_threshold)
+      if (!std::isnan((float)rel_decrease) && b.backstep_on && fabs(rel_decrease) < b.rel_threshold)
       {
         fprintf(stdout,
             "\nTermination condition reached in pass %ld: decrease in loss less than %.3f%%.\n"
@@ -967,14 +975,6 @@ void learn(bfgs& b, base_learner& base, example& ec)
   }
 }
 
-void finish(bfgs& b)
-{
-  b.predictions.delete_v();
-  free(b.mem);
-  free(b.rho);
-  free(b.alpha);
-}
-
 void save_load_regularizer(vw& all, bfgs& b, io_buf& model_file, bool read, bool text)
 {
   int c = 0;
@@ -1006,7 +1006,7 @@ void save_load_regularizer(vw& all, bfgs& b, io_buf& model_file, bool read, bool
       if (*v != 0.)
       {
         c++;
-        stringstream msg;
+        std::stringstream msg;
         msg << i;
         brw = bin_text_write_fixed(model_file, (char*)&i, sizeof(i), msg, text);
 
@@ -1047,11 +1047,12 @@ void save_load(bfgs& b, io_buf& model_file, bool read, bool text)
     uint32_t stride_shift = all->weights.stride_shift();
 
     if (!all->quiet)
-      cerr << "m = " << m << endl
-           << "Allocated "
-           << ((long unsigned int)all->length() * (sizeof(float) * (b.mem_stride) + (sizeof(weight) << stride_shift)) >>
-                  20)
-           << "M for weights and mem" << endl;
+      std::cerr << "m = " << m << std::endl
+                << "Allocated "
+                << ((long unsigned int)all->length() *
+                           (sizeof(float) * (b.mem_stride) + (sizeof(weight) << stride_shift)) >>
+                       20)
+                << "M for weights and mem" << std::endl;
 
     b.net_time = 0.0;
     ftime(&b.t_start_global);
@@ -1061,7 +1062,7 @@ void save_load(bfgs& b, io_buf& model_file, bool read, bool text)
       const char* header_fmt = "%2s %-10s\t%-10s\t%-10s\t %-10s\t%-10s\t%-10s\t%-10s\t%-10s\t%-s\n";
       fprintf(stderr, header_fmt, "##", "avg. loss", "der. mag.", "d. m. cond.", "wolfe1", "wolfe2", "mix fraction",
           "curvature", "dir. magnitude", "step size");
-      cerr.precision(5);
+      std::cerr.precision(5);
     }
 
     if (b.regularizers != nullptr)
@@ -1075,7 +1076,7 @@ void save_load(bfgs& b, io_buf& model_file, bool read, bool text)
 
   if (model_file.files.size() > 0)
   {
-    stringstream msg;
+    std::stringstream msg;
     msg << ":" << reg_vector << "\n";
     bin_text_read_write_fixed(model_file, (char*)&reg_vector, sizeof(reg_vector), "", read, msg, text);
 
@@ -1140,9 +1141,9 @@ base_learner* bfgs_setup(options_i& options, vw& all)
     else
       b->all->trace_message << "enabling conjugate gradient optimization via BFGS ";
     if (all.hessian_on)
-      b->all->trace_message << "with curvature calculation" << endl;
+      b->all->trace_message << "with curvature calculation" << std::endl;
     else
-      b->all->trace_message << "**without** curvature calculation" << endl;
+      b->all->trace_message << "**without** curvature calculation" << std::endl;
   }
 
   if (all.numpasses < 2 && all.training)
@@ -1166,7 +1167,6 @@ base_learner* bfgs_setup(options_i& options, vw& all)
   l->set_save_load(save_load);
   l->set_init_driver(init_driver);
   l->set_end_pass(end_pass);
-  l->set_finish(finish);
 
   return make_base(*l);
 }
