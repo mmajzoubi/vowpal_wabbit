@@ -9,7 +9,7 @@ namespace CB
     size_t num = *(size_t*)c;
     ld->costs.clear();
     c += sizeof(size_t);
-    size_t total = sizeof(LBL_ELM) * num;
+    size_t total = sizeof(LBL_ELM) * num + sizeof(ld->weight);
     if (cache.buf_read(c, total) < total)
     {
       std::cout << "error in demarshal of cost data" << std::endl;
@@ -21,7 +21,8 @@ namespace CB
       c += sizeof(LBL_ELM);
       ld->costs.push_back(temp);
     }
-
+    memcpy(&ld->weight, c, sizeof(ld->weight));
+    c += sizeof(ld->weight);
     return c;
   }
 
@@ -40,7 +41,7 @@ namespace CB
   }
 
   float weight(void*);
-  
+
   template <typename LBL = CB::label, typename LBL_ELM = cb_class>
   char* bufcache_label(LBL* ld, char* c)
   {
@@ -51,6 +52,8 @@ namespace CB
       *(LBL_ELM*)c = ld->costs[i];
       c += sizeof(LBL_ELM);
     }
+    memcpy(c, &ld->weight, sizeof(ld->weight));
+    c += sizeof(ld->weight);
     return c;
   }
 
@@ -59,7 +62,7 @@ namespace CB
   {
     char* c;
     auto ld = (LBL*)v;
-    cache.buf_write(c, sizeof(size_t) + sizeof(LBL_ELM) * ld->costs.size());
+    cache.buf_write(c, sizeof(size_t) + sizeof(LBL_ELM) * ld->costs.size() + sizeof(ld->weight));
     bufcache_label<LBL,LBL_ELM>(ld, c);
   }
 
@@ -68,6 +71,7 @@ namespace CB
   {
     auto ld = (LBL*)v;
     ld->costs.clear();
+    ld->weight = 1;
   }
 
   template <typename LBL = CB::label>
@@ -76,8 +80,8 @@ namespace CB
     auto ld = (LBL*)v;
     if (ld->costs.size() == 0)
       return true;
-    for (size_t i = 0; i < ld->costs.size(); i++)
-      if (FLT_MAX != ld->costs[i].cost && ld->costs[i].probability > 0.)
+    for (auto const& cost : ld->costs)
+      if (FLT_MAX != cost.cost && cost.probability > 0.)
         return false;
     return true;
   }
@@ -95,5 +99,6 @@ namespace CB
     auto ldD = (LBL*)dst;
     auto ldS = (LBL*)src;
     copy_array(ldD->costs, ldS->costs);
+    ldD->weight = ldS->weight;
   }
 }  // namespace CB
