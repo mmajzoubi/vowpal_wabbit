@@ -823,13 +823,13 @@ base_learner* cbify_setup(options_i& options, vw& all)
       if (use_discrete)
       {
         l = &init_learner(data, base, predict_or_learn_regression_discrete<true>,
-            predict_or_learn_regression_discrete<false>, 1, prediction_type::scalar);
+            predict_or_learn_regression_discrete<false>, 1, prediction_type_t::scalar);
         l->set_finish_example(finish_example_cb_reg_discrete);  // todo: check
       }
       else
       {
         l = &init_learner(data, base, predict_or_learn_regression<true>, predict_or_learn_regression<false>, 1,
-            prediction_type::scalar);
+            prediction_type_t::scalar);
         l->set_finish_example(finish_example_cb_reg_continous);
       }
     }

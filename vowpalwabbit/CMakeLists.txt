@@ -37,7 +37,7 @@ search_dep_parser.h search_entityrelationtask.h search_graph.h search_hooktask.h
 search_multiclasstask.h search_sequencetask.h search.h sender.h shared_feature_merger.h
 simple_label.h spanning_tree.h stable_unique.h stagewise_poly.h svrg.h topk.h unique_sort.h
 v_array.h version.h vw_allreduce.h vw_exception.h vw_validate.h vw_versions.h vw.h
-vwdll.h warm_cb.h vw_string_view.h pmf_to_pdf.h offset_tree_cont.h api_status.h cb_label_parser.h
+vwdll.h warm_cb.h vw_string_view.h pmf_to_pdf.h offset_tree_cont.h api_status.h
 cont_tbd.h errors_data.h err_constants.h prob_dist_cont.h cb_continuous.h
 )
 

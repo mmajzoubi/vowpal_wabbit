@@ -378,8 +378,7 @@ base_learner* offset_tree_cont_setup(VW::config::options_i& options, vw& all)
   // all.delete_prediction = ACTION_SCORE::delete_action_scores; //TODO: commented
 
   learner<offset_tree, example>& l =
-      init_learner(otree, as_singleline(base), learn, predict, otree->learner_count(), prediction_type::multiclass);
-  // TODO: changed to prediction_type::multiclass
+      init_learner(otree, as_singleline(base), learn, predict, otree->learner_count(), prediction_type_t::multiclass);
 
   l.set_finish(finish);
 
