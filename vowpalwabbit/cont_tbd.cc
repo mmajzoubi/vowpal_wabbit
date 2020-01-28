@@ -20,7 +20,7 @@ namespace VW
   void finish_example(vw& all, example& ec);
 }
 
-VW_DEBUG_ENABLE(false);
+VW_DEBUG_ENABLE(false)
 
 namespace VW { namespace continuous_action {
 
@@ -40,7 +40,7 @@ namespace VW { namespace continuous_action {
 
   namespace lbl_parser {
 
-    void parse_label(parser* p, shared_data* sd, void* v, v_array<VW::string_view>& words)
+    void parse_label(parser* p, shared_data*, void* v, v_array<VW::string_view>& words)
     {
       auto ld = static_cast<continuous_label*>(v);
       ld->costs.clear();
@@ -148,7 +148,7 @@ namespace VW { namespace continuous_action {
       ld->costs.delete_v();
     }
 
-    float weight(void* v)
+    float weight(void*)
     {
       return 1.f;
     }
@@ -252,7 +252,7 @@ namespace VW { namespace continuous_action {
   // Continuous action space predict_or_learn. Non-afd workflow only
   // Receives Regression example as input, sends cb_continuous example to base learn/predict
   template <bool is_learn>
-  void predict_or_learn(cont_tbd& reduction, single_learner& base, example& ec)
+  void predict_or_learn(cont_tbd& reduction, single_learner&, example& ec)
   {
     api_status status;
     if (is_learn)
@@ -288,7 +288,7 @@ namespace VW { namespace continuous_action {
 
   // "average loss" "since last" "example counter" "example weight"
   // "current label" "current predict" "current features"
-  void output_example(vw& all, cont_tbd& data, example& ec)
+  void output_example(vw& all, cont_tbd&, example& ec)
   {
     const auto& cb_cont_costs = ec.l.cb_cont.costs;
 

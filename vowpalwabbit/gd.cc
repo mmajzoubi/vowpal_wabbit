@@ -31,7 +31,7 @@ using namespace LEARNER;
 using namespace VW::config;
 using std::endl;
 
-VW_DEBUG_ENABLE(false);
+VW_DEBUG_ENABLE(false)
 
 namespace GD
 {
