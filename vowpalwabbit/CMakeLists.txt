@@ -37,7 +37,7 @@ search_dep_parser.h search_entityrelationtask.h search_graph.h search_hooktask.h
 search_multiclasstask.h search_sequencetask.h search.h sender.h shared_feature_merger.h
 simple_label.h spanning_tree.h stable_unique.h stagewise_poly.h svrg.h topk.h unique_sort.h
 v_array.h version.h vw_allreduce.h vw_exception.h vw_validate.h vw_versions.h vw.h
-vwdll.h warm_cb.h vw_string_view.h pmf_to_pdf.h offset_tree_cont.h api_status.h
+vwdll.h warm_cb.h vw_string_view.h pmf_to_pdf.h offset_tree.h offset_tree_cont.h api_status.h
 cont_tbd.h errors_data.h err_constants.h prob_dist_cont.h cb_continuous.h
 )
 
@@ -56,7 +56,7 @@ set(vw_all_sources
   recall_tree.cc scorer.cc search_dep_parser.cc search_entityrelationtask.cc search_graph.cc
   search_hooktask.cc search_meta.cc search_multiclasstask.cc search_sequencetask.cc search.cc
   sender.cc shared_feature_merger.cc simple_label.cc stagewise_poly.cc svrg.cc topk.cc unique_sort.cc
-  version.cc vw_exception.cc vw_validate.cc warm_cb.cc pmf_to_pdf.cc offset_tree_cont.cc api_status.cc
+  version.cc vw_exception.cc vw_validate.cc warm_cb.cc offset_tree.cc pmf_to_pdf.cc offset_tree_cont.cc api_status.cc
   cont_tbd.cc prob_dist_cont.cc cb_continuous.cc
 )
 
