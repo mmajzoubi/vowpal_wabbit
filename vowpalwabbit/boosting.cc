@@ -1,8 +1,6 @@
-/*
- Copyright (c) by respective owners including Yahoo!, Microsoft, and
- individual contributors. All rights reserved.  Released under a BSD (revised)
- license as described in the file LICENSE.
- */
+// Copyright (c) by respective owners including Yahoo!, Microsoft, and
+// individual contributors. All rights reserved. Released under a BSD (revised)
+// license as described in the file LICENSE.
 
 /*
  * Implementation of online boosting algorithms from
@@ -10,22 +8,25 @@
  *    ICML-2015.
  */
 
-#include <float.h>
-#include <limits.h>
-#include <math.h>
+#include <cfloat>
+#include <climits>
+#include <cmath>
 #include "correctedMath.h"
-#include <stdio.h>
+#include <cstdio>
 #include <string>
 #include <sstream>
 #include <vector>
+#include <memory>
 
 #include "reductions.h"
 #include "vw.h"
 #include "rand48.h"
 
-using namespace std;
 using namespace LEARNER;
 using namespace VW::config;
+
+using std::cerr;
+using std::endl;
 
 inline float sign(float w)
 {
@@ -58,8 +59,9 @@ struct boosting
 {
   int N;
   float gamma;
-  string alg;
+  std::string alg;
   vw* all;
+  std::shared_ptr<rand_state> _random_state;
   std::vector<std::vector<int64_t> > C;
   std::vector<float> alpha;
   std::vector<float> v;
@@ -210,7 +212,7 @@ void predict_or_learn_adaptive(boosting& o, LEARNER::single_learner& base, examp
     o.t++;
   float eta = 4.f / (float)sqrtf((float)o.t);
 
-  float stopping_point = merand48(o.all->random_state);
+  float stopping_point = o._random_state->get_and_update_random();
 
   for (int i = 0; i < o.N; i++)
   {
@@ -292,7 +294,7 @@ void save_load_sampling(boosting& o, io_buf& model_file, bool read, bool text)
 {
   if (model_file.files.size() == 0)
     return;
-  stringstream os;
+  std::stringstream os;
   os << "boosts " << o.N << endl;
   bin_text_read_write_fixed(model_file, (char*)&(o.N), sizeof(o.N), "", read, os, text);
 
@@ -311,7 +313,7 @@ void save_load_sampling(boosting& o, io_buf& model_file, bool read, bool text)
     }
     else
     {
-      stringstream os2;
+      std::stringstream os2;
       os2 << "alpha " << o.alpha[i] << endl;
       bin_text_write_fixed(model_file, (char*)&(o.alpha[i]), sizeof(o.alpha[i]), os2, text);
     }
@@ -325,7 +327,7 @@ void save_load_sampling(boosting& o, io_buf& model_file, bool read, bool text)
     }
     else
     {
-      stringstream os2;
+      std::stringstream os2;
       os2 << "v " << o.v[i] << endl;
       bin_text_write_fixed(model_file, (char*)&(o.v[i]), sizeof(o.v[i]), os2, text);
     }
@@ -346,12 +348,6 @@ void save_load_sampling(boosting& o, io_buf& model_file, bool read, bool text)
   cerr << endl;
 }
 
-void finish(boosting& o)
-{
-  o.C.~vector();
-  o.alpha.~vector();
-}
-
 void return_example(vw& all, boosting& /* a */, example& ec)
 {
   output_and_account_example(all, ec);
@@ -362,7 +358,7 @@ void save_load(boosting& o, io_buf& model_file, bool read, bool text)
 {
   if (model_file.files.size() == 0)
     return;
-  stringstream os;
+  std::stringstream os;
   os << "boosts " << o.N << endl;
   bin_text_read_write_fixed(model_file, (char*)&(o.N), sizeof(o.N), "", read, os, text);
 
@@ -378,7 +374,7 @@ void save_load(boosting& o, io_buf& model_file, bool read, bool text)
     }
     else
     {
-      stringstream os2;
+      std::stringstream os2;
       os2 << "alpha " << o.alpha[i] << endl;
       bin_text_write_fixed(model_file, (char*)&(o.alpha[i]), sizeof(o.alpha[i]), os2, text);
     }
@@ -428,6 +424,7 @@ LEARNER::base_learner* boosting_setup(options_i& options, vw& all)
   data->C = std::vector<std::vector<int64_t> >(data->N, std::vector<int64_t>(data->N, -1));
   data->t = 0;
   data->all = &all;
+  data->_random_state = all.get_random_state();
   data->alpha = std::vector<float>(data->N, 0);
   data->v = std::vector<float>(data->N, 1);
 
@@ -450,7 +447,6 @@ LEARNER::base_learner* boosting_setup(options_i& options, vw& all)
   else
     THROW("Unrecognized boosting algorithm: \'" << data->alg << "\' Bailing!");
 
-  l->set_finish(finish);
   l->set_finish_example(return_example);
 
   return make_base(*l);

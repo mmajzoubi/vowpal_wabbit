@@ -102,7 +102,7 @@ namespace VW { namespace cb_continuous
     copy_array(ldD->costs, ldS->costs);
   }
 
-  void parse_label(parser* p, shared_data*, void* v, v_array<substring>& words)
+  void parse_label(parser* p, shared_data*, void* v, v_array<VW::string_view>& words)
   {
     cb_continuous::continuous_label* ld = (cb_continuous::continuous_label*)v;
     ld->costs.clear();
@@ -115,20 +115,20 @@ namespace VW { namespace cb_continuous
         THROW("malformed cost specification: " << p->parse_name);
 
       f.partial_prediction = 0.;
-      f.action = (uint32_t)hashstring(p->parse_name[0], 0); //todo
+      f.action = (float)hashstring(p->parse_name[0].begin(), p->parse_name[0].length(), 0);  // todo
       f.cost = FLT_MAX;
 
       if (p->parse_name.size() > 1)
-        f.cost = float_of_substring(p->parse_name[1]);
+        f.cost = float_of_string(p->parse_name[1]);
 
-      if (nanpattern(f.cost))
+      if (std::isnan(f.cost))
         THROW("error NaN cost (" << p->parse_name[1] << " for action: " << p->parse_name[0]);
 
       f.probability = .0;
       if (p->parse_name.size() > 2)
-        f.probability = float_of_substring(p->parse_name[2]);
+        f.probability = float_of_string(p->parse_name[2]);
 
-      if (nanpattern(f.probability))
+      if (std::isnan(f.probability))
         THROW("error NaN probability (" << p->parse_name[2] << " for action: " << p->parse_name[0]);
 
       if (f.probability > 1.0)
@@ -141,7 +141,7 @@ namespace VW { namespace cb_continuous
         cerr << "invalid probability < 0 specified for an action, resetting to 0." << endl;
         f.probability = .0;
       }
-      if (substring_equal(p->parse_name[0], "shared"))
+      if (p->parse_name[0] == "shared")
       {
         if (p->parse_name.size() == 1)
         {
@@ -155,8 +155,16 @@ namespace VW { namespace cb_continuous
     }
   }
 
-  label_parser cb_cont_label = {default_label, parse_label, cache_label, read_cached_label, delete_label, weight, copy_label,
-      test_label, sizeof(continuous_label)};
+  label_parser cb_cont_label = {
+    default_label,
+    parse_label,
+    cache_label,
+    read_cached_label,
+    delete_label,
+    weight,
+    copy_label,
+    test_label,
+    sizeof(continuous_label)};
 
   bool ec_is_example_header(example& ec)  // example headers just have "shared"
   {

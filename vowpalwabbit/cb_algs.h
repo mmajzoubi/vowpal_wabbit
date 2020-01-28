@@ -1,8 +1,7 @@
-/*
-Copyright (c) by respective owners including Yahoo!, Microsoft, and
-individual contributors. All rights reserved.  Released under a BSD
-license as described in the file LICENSE.
- */
+// Copyright (c) by respective owners including Yahoo!, Microsoft, and
+// individual contributors. All rights reserved. Released under a BSD (revised)
+// license as described in the file LICENSE.
+
 #pragma once
 
 #include "baseline.h"
@@ -77,7 +76,7 @@ inline float get_cost_estimate(ACTION_SCORE::action_score& a_s, float cost, uint
   return 0.;
 }
 
-inline bool example_is_newline_not_header(example& ec)
+inline bool example_is_newline_not_header(example const& ec)
 {
   return (example_is_newline(ec) && !CB::ec_is_example_header(ec));
 }

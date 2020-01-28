@@ -18,6 +18,12 @@
     <ClCompile Include="main.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="stable_unique_tests.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="example_header_test.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="explore_test.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -60,9 +66,15 @@
     <ClCompile Include="vwdll_test.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
+    <ClCompile Include="ccb_test.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="distributionally_robust_test.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="prediction_test.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="test_common.h">
@@ -71,5 +83,14 @@
     <ClInclude Include="offset_tree_cont_tests.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+    <None Include="DistributionallyRobustUnitTestData.py">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="crminustwo.py">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

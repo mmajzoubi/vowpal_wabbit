@@ -1,3 +1,8 @@
+// Copyright (c) by respective owners including Yahoo!, Microsoft, and
+// individual contributors. All rights reserved. Released under a BSD (revised)
+// license as described in the file LICENSE.
+
+#define NOMINMAX
 #include "zlib.h"
 #include "comp_io.h"
 
@@ -74,11 +79,11 @@ void comp_io_buf::flush()
 
 bool comp_io_buf::close_file()
 {
-  if (gz_files.size() > 0)
+  if (!gz_files.empty())
   {
     gzclose(gz_files.back());
     gz_files.pop_back();
-    if (files.size() > 0)
+    if (!files.empty())
       files.pop();
     return true;
   }

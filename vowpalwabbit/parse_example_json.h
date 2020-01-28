@@ -1,8 +1,6 @@
-/*
-Copyright (c) by respective owners including Yahoo!, Microsoft, and
-individual contributors. All rights reserved.  Released under a BSD
-license as described in the file LICENSE.
-*/
+// Copyright (c) by respective owners including Yahoo!, Microsoft, and
+// individual contributors. All rights reserved. Released under a BSD (revised)
+// license as described in the file LICENSE.
 
 #pragma once
 
@@ -32,6 +30,7 @@ license as described in the file LICENSE.
 
 #include "best_constant.h"
 
+#include "vw_string_view.h"
 #include <algorithm>
 #include <vector>
 
@@ -40,7 +39,6 @@ license as described in the file LICENSE.
 #define _stricmp strcasecmp
 #endif
 
-using namespace std;
 using namespace rapidjson;
 
 struct vw;
@@ -76,7 +74,7 @@ struct Namespace
 
   void AddFeature(vw* all, const char* str)
   {
-    ftrs->push_back(1., VW::hash_feature(*all, str, namespace_hash));
+    ftrs->push_back(1., VW::hash_feature_cstr(*all, const_cast<char*>(str), namespace_hash));
     feature_count++;
 
     if (audit)
@@ -117,7 +115,7 @@ struct BaseState
 
   virtual BaseState<audit>* String(Context<audit>& ctx, const char* str, rapidjson::SizeType len, bool)
   {
-    ctx.error() << "Unexpected token: string('" << str << "' len: " << len << ")";
+    ctx.error() << "Unexpected token: std::string('" << str << "' len: " << len << ")";
     return nullptr;
   }
 
@@ -246,7 +244,7 @@ class LabelObjectState : public BaseState<audit>
 
   BaseState<audit>* EndObject(Context<audit>& ctx, rapidjson::SizeType) override
   {
-    if (ctx.all->label_type == label_type::ccb)
+    if (ctx.all->label_type == label_type_t::ccb)
     {
       auto ld = (CCB::label*)&ctx.ex->l;
 
@@ -258,7 +256,7 @@ class LabelObjectState : public BaseState<audit>
 
       if ((actions.size() != 0) && (probs.size() != 0))
       {
-        auto outcome = new CCB::conditional_contexual_bandit_outcome();
+        auto outcome = new CCB::conditional_contextual_bandit_outcome();
         outcome->cost = cb_label.cost;
         if (actions.size() != probs.size())
         {
@@ -350,7 +348,7 @@ struct LabelState : BaseState<audit>
 
   BaseState<audit>* StartObject(Context<audit>& ctx) override { return ctx.label_object_state.StartObject(ctx); }
 
-  BaseState<audit>* String(Context<audit>& ctx, const char* str, rapidjson::SizeType /* len */, bool)
+  BaseState<audit>* String(Context<audit>& ctx, const char* str, rapidjson::SizeType /* len */, bool) override
   {
     VW::parse_example_label(*ctx.all, *ctx.ex, str);
     return ctx.previous_state;
@@ -434,7 +432,7 @@ struct MultiState : BaseState<audit>
   BaseState<audit>* StartArray(Context<audit>& ctx) override
   {
     // mark shared example
-    if (ctx.all->label_type == label_type::cb)
+    if (ctx.all->label_type == label_type_t::cb)
     {
       CB::label* ld = &ctx.ex->l.cb;
       CB::cb_class f;
@@ -446,7 +444,7 @@ struct MultiState : BaseState<audit>
 
       ld->costs.push_back(f);
     }
-    else if (ctx.all->label_type == label_type::ccb)
+    else if (ctx.all->label_type == label_type_t::ccb)
     {
       CCB::label* ld = &ctx.ex->l.conditional_contextual_bandit;
       ld->type = CCB::example_type::shared;
@@ -462,7 +460,7 @@ struct MultiState : BaseState<audit>
     // allocate new example
     ctx.ex = &(*ctx.example_factory)(ctx.example_factory_context);
     ctx.all->p->lp.default_label(&ctx.ex->l);
-    if (ctx.all->label_type == label_type::ccb)
+    if (ctx.all->label_type == label_type_t::ccb)
     {
       ctx.ex->l.conditional_contextual_bandit.type = CCB::example_type::action;
     }
@@ -512,7 +510,7 @@ struct SlotsState : BaseState<audit>
     ctx.examples->push_back(ctx.ex);
 
     // The end object logic assumes shared example so we need to take an extra one here.
-    ctx.label_index_state.index = ctx.examples->size() - 2;
+    ctx.label_index_state.index = static_cast<int>(ctx.examples->size()) - 2;
 
     // setup default namespace
     ctx.PushNamespace(" ", this);
@@ -560,7 +558,7 @@ class ArrayState : public BaseState<audit>
   {
     if (audit)
     {
-      stringstream str;
+      std::stringstream str;
       str << '[' << (array_hash - ctx.CurrentNamespace().namespace_hash) << ']';
 
       ctx.CurrentNamespace().AddFeature(f, array_hash, str.str().c_str());
@@ -695,7 +693,7 @@ class DefaultState : public BaseState<audit>
     return &ctx.ignore_state;
   }
 
-  BaseState<audit>* Key(Context<audit>& ctx, const char* str, rapidjson::SizeType length, bool)
+  BaseState<audit>* Key(Context<audit>& ctx, const char* str, rapidjson::SizeType length, bool) override
   {
     ctx.key = str;
     ctx.key_length = length;
@@ -758,7 +756,7 @@ class DefaultState : public BaseState<audit>
     return this;
   }
 
-  BaseState<audit>* String(Context<audit>& ctx, const char* str, rapidjson::SizeType length, bool)
+  BaseState<audit>* String(Context<audit>& ctx, const char* str, rapidjson::SizeType length, bool) override
   {
     // string escape
     const char* end = str + length;
@@ -827,7 +825,7 @@ class DefaultState : public BaseState<audit>
 
       // If we are in CCB mode and there have been no slots. Check label cost, prob and action were passed. In that
       // case this is CB, so generate a single slot with this info.
-      if (ctx.all->label_type == label_type::ccb)
+      if (ctx.all->label_type == label_type_t::ccb)
       {
         auto num_slots = std::count_if(ctx.examples->begin(), ctx.examples->end(),
             [](example* ex) { return ex->l.conditional_contextual_bandit.type == CCB::example_type::slot; });
@@ -838,7 +836,7 @@ class DefaultState : public BaseState<audit>
           ctx.ex->l.conditional_contextual_bandit.type = CCB::example_type::slot;
           ctx.examples->push_back(ctx.ex);
 
-          auto outcome = new CCB::conditional_contexual_bandit_outcome();
+          auto outcome = new CCB::conditional_contextual_bandit_outcome();
           outcome->cost = ctx.label_object_state.cb_label.cost;
           outcome->probabilities.push_back(
               {ctx.label_object_state.cb_label.action, ctx.label_object_state.cb_label.probability});
@@ -854,7 +852,7 @@ class DefaultState : public BaseState<audit>
   BaseState<audit>* Float(Context<audit>& ctx, float f) override
   {
     auto& ns = ctx.CurrentNamespace();
-    ns.AddFeature(f, VW::hash_feature(*ctx.all, ctx.key, ns.namespace_hash), ctx.key);
+    ns.AddFeature(f, VW::hash_feature_cstr(*ctx.all, const_cast<char*>(ctx.key), ns.namespace_hash), ctx.key);
 
     return this;
   }
@@ -1243,8 +1241,8 @@ struct Context
   {
     Namespace<audit> n;
     n.feature_group = ns[0];
-    n.namespace_hash = VW::hash_space(*all, ns);
-    n.ftrs = ex->feature_space + ns[0];
+    n.namespace_hash = VW::hash_space_cstr(*all, ns);
+    n.ftrs = ex->feature_space.data() + ns[0];
     n.feature_count = 0;
     n.return_state = return_state;
 
@@ -1372,6 +1370,24 @@ void read_line_json(
   // "Line: '"<< line_copy << "'");
 }
 
+inline void apply_pdrop(vw& all, float pdrop, v_array<example*>& examples)
+{
+  if (all.label_type == label_type_t::cb)
+  {
+    for (auto& e : examples)
+    {
+      e->l.cb.weight = 1 - pdrop;
+    }
+  }
+  else if (all.label_type == label_type_t::ccb)
+  {
+    for (auto& e : examples)
+    {
+      e->l.conditional_contextual_bandit.weight = 1 - pdrop;
+    }
+  }
+}
+
 template <bool audit>
 void read_line_decision_service_json(vw& all, v_array<example*>& examples, char* line, size_t length, bool copy_line,
     example_factory_t example_factory, void* ex_factory_context, DecisionServiceInteraction* data)
@@ -1392,6 +1408,8 @@ void read_line_decision_service_json(vw& all, v_array<example*>& examples, char*
 
   ParseResult result =
       parser.reader.template Parse<kParseInsituFlag, InsituStringStream, VWReaderHandler<audit>>(ss, handler);
+
+  apply_pdrop(all, data->probabilityOfDrop, examples);
 
   if (!result.IsError())
     return;
@@ -1457,8 +1475,8 @@ inline void prepare_for_learner(vw* all, v_array<example*>& examples)
   if (examples.size() > 1)
   {
     example& ae = VW::get_unused_example(all);
-    char empty = '\0';
-    substring example = {&empty, &empty};
+    static const char empty[] = "";
+    VW::string_view example(empty);
     substring_to_example(all, &ae, example);
 
     examples.push_back(&ae);

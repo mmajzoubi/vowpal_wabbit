@@ -1,4 +1,8 @@
-#include <float.h>
+// Copyright (c) by respective owners including Yahoo!, Microsoft, and
+// individual contributors. All rights reserved. Released under a BSD (revised)
+// license as described in the file LICENSE.
+
+#include <cfloat>
 #include <vector>
 #include "reductions.h"
 #include "cb_algs.h"
@@ -12,7 +16,8 @@
 using namespace LEARNER;
 using namespace exploration;
 using namespace ACTION_SCORE;
-using namespace std;
+// using namespace COST_SENSITIVE;
+
 using namespace VW::config;
 
 using VW::cb_continuous::continuous_label;
@@ -60,6 +65,23 @@ struct cbify
   std::vector<v_array<COST_SENSITIVE::wclass>> cs_costs;
   std::vector<v_array<CB::cb_class>> cb_costs;
   std::vector<ACTION_SCORE::action_scores> cb_as;
+
+  ~cbify()
+  {
+    CB::cb_label.delete_label(&cb_label);
+    a_s.delete_v();
+
+    if (use_adf)
+    {
+      for (size_t a = 0; a < adf_data.num_actions; ++a)
+      {
+        adf_data.ecs[a]->pred.a_s.delete_v();
+        VW::dealloc_example(CB::cb_label.delete_label, *adf_data.ecs[a]);
+        free_it(adf_data.ecs[a]);
+      }
+      for (auto& as : cb_as) as.delete_v();
+    }
+  }
 };
 
 float loss(cbify& data, uint32_t label, uint32_t final_prediction)
@@ -149,7 +171,7 @@ void copy_example_to_adf(cbify& data, example& ec)
     // copy data
     VW::copy_example_data(false, &eca, &ec);
 
-    // offset indicies for given action
+    // offset indices for given action
     for (features& fs : eca)
     {
       for (feature_index& idx : fs.indicies)
@@ -520,8 +542,7 @@ void do_actual_learning_ldf(cbify& data, multi_learner& base, multi_ex& ec_seq)
 
 void output_example(vw& all, example& ec, bool& hit_loss, multi_ex* ec_seq)
 {
-  COST_SENSITIVE::label& ld = ec.l.cs;
-  v_array<COST_SENSITIVE::wclass> costs = ld.costs;
+  const auto& costs = ec.l.cs.costs;
 
   if (example_is_newline(ec))
     return;
@@ -536,13 +557,13 @@ void output_example(vw& all, example& ec, bool& hit_loss, multi_ex* ec_seq)
 
   if (!COST_SENSITIVE::cs_label.test_label(&ec.l))
   {
-    for (size_t j = 0; j < costs.size(); j++)
+    for (auto const& cost : costs)
     {
       if (hit_loss)
         break;
-      if (predicted_class == costs[j].class_index)
+      if (predicted_class == cost.class_index)
       {
-        loss = costs[j].x;
+        loss = cost.x;
         hit_loss = true;
       }
     }
@@ -551,20 +572,21 @@ void output_example(vw& all, example& ec, bool& hit_loss, multi_ex* ec_seq)
     all.sd->sum_loss_since_last_dump += loss;
   }
 
-  for (int sink : all.final_prediction_sink) all.print(sink, (float)ec.pred.multiclass, 0, ec.tag);
+  for (int sink : all.final_prediction_sink)
+    all.print_by_ref(sink, (float)ec.pred.multiclass, 0, ec.tag);
 
   if (all.raw_prediction > 0)
   {
-    string outputString;
-    stringstream outputStringStream(outputString);
+    std::string outputString;
+    std::stringstream outputStringStream(outputString);
     for (size_t i = 0; i < costs.size(); i++)
     {
       if (i > 0)
         outputStringStream << ' ';
       outputStringStream << costs[i].class_index << ':' << costs[i].partial_prediction;
     }
-    // outputStringStream << endl;
-    all.print_text(all.raw_prediction, outputStringStream.str(), ec.tag);
+    // outputStringStream << std::endl;
+    all.print_text_by_ref(all.raw_prediction, outputStringStream.str(), ec.tag);
   }
 
   COST_SENSITIVE::print_update(all, COST_SENSITIVE::cs_label.test_label(&ec.l), ec, ec_seq, false, predicted_class);
@@ -572,7 +594,7 @@ void output_example(vw& all, example& ec, bool& hit_loss, multi_ex* ec_seq)
 
 void output_example_seq(vw& all, multi_ex& ec_seq)
 {
-  if (ec_seq.size() == 0)
+  if (ec_seq.empty())
     return;
   all.sd->weighted_labeled_examples += ec_seq[0]->weight;
   all.sd->example_number++;
@@ -583,7 +605,7 @@ void output_example_seq(vw& all, multi_ex& ec_seq)
   if (all.raw_prediction > 0)
   {
     v_array<char> empty = {nullptr, nullptr, nullptr, 0};
-    all.print_text(all.raw_prediction, "", empty);
+    all.print_text_by_ref(all.raw_prediction, "", empty);
   }
 }
 
@@ -620,7 +642,7 @@ void output_example_regression(vw& all, cbify& data, example& ec)
 void output_cb_reg_predictions(
     v_array<int>& predict_file_descriptors, continuous_label& label)
 {
-  stringstream strm;
+  std::stringstream strm;
   if (label.costs.size() == 1)
   {
     continuous_label_elm cost = label.costs[0];
@@ -661,12 +683,12 @@ void finish_example_cb_reg_discrete(vw& all, cbify& data, example& ec)
 
 void finish_multiline_example(vw& all, cbify&, multi_ex& ec_seq)
 {
-  if (ec_seq.size() > 0)
+  if (!ec_seq.empty())
   {
     output_example_seq(all, ec_seq);
     // global_print_newline(all);
   }
-  VW::clear_seq_and_finish_examples(all, ec_seq);
+  VW::finish_example(all, ec_seq);
 }
 
 base_learner* cbify_setup(options_i& options, vw& all)
@@ -718,8 +740,6 @@ base_learner* cbify_setup(options_i& options, vw& all)
   data->a_s = v_init<action_score>();
   data->all = &all;
 
-  if (data->use_adf)
-    init_adf_data(*data.get(), num_actions);
   if (use_reg)  // todo: check: we need more options passed to pmf_to_pdf
   {
     // Check invalid parameter combinations
@@ -735,6 +755,7 @@ base_learner* cbify_setup(options_i& options, vw& all)
     {
       THROW("error: min and max values must be supplied with cbify_reg");
     }
+    init_adf_data(*data, num_actions);
 
     if (use_discrete && options.was_supplied("cb_continuous"))
     {
@@ -742,7 +763,7 @@ base_learner* cbify_setup(options_i& options, vw& all)
     }
     else if (use_discrete)
     {
-      stringstream ss;
+      std::stringstream ss;
       ss << num_actions;
       options.insert("cb_explore", ss.str());
     }
@@ -753,7 +774,7 @@ base_learner* cbify_setup(options_i& options, vw& all)
     }
     else
     {
-      stringstream ss;
+      std::stringstream ss;
       ss << num_actions;
       options.insert("cb_continuous", ss.str());
     }
@@ -762,7 +783,7 @@ base_learner* cbify_setup(options_i& options, vw& all)
   {
     if (!options.was_supplied("cb_explore") && !data->use_adf)
     {
-      stringstream ss;
+      std::stringstream ss;
       ss << num_actions;
       options.insert("cb_explore", ss.str());
     }
@@ -770,14 +791,14 @@ base_learner* cbify_setup(options_i& options, vw& all)
 
   if (data->use_adf)
   {
-    options.insert("cb_min_cost", to_string(data->loss0));
-    options.insert("cb_max_cost", to_string(data->loss1));
+    options.insert("cb_min_cost", std::to_string(data->loss0));
+    options.insert("cb_max_cost", std::to_string(data->loss1));
   }
 
   if (options.was_supplied("baseline"))
   {
-    stringstream ss;
-    ss << max<float>(abs(data->loss0), abs(data->loss1)) / (data->loss1 - data->loss0);
+    std::stringstream ss;
+    ss << std::max(std::abs(data->loss0), std::abs(data->loss1)) / (data->loss1 - data->loss0);
     options.insert("lr_multiplier", ss.str());
   }
 
@@ -802,13 +823,13 @@ base_learner* cbify_setup(options_i& options, vw& all)
       if (use_discrete)
       {
         l = &init_learner(data, base, predict_or_learn_regression_discrete<true>,
-            predict_or_learn_regression_discrete<false>, 1, prediction_type::scalar);
+            predict_or_learn_regression_discrete<false>, 1, prediction_type_t::scalar);
         l->set_finish_example(finish_example_cb_reg_discrete);  // todo: check
       }
       else
       {
         l = &init_learner(data, base, predict_or_learn_regression<true>, predict_or_learn_regression<false>, 1,
-            prediction_type::scalar);
+            prediction_type_t::scalar);
         l->set_finish_example(finish_example_cb_reg_continous);
       }
     }
@@ -818,7 +839,6 @@ base_learner* cbify_setup(options_i& options, vw& all)
     else
       l = &init_multiclass_learner(data, base, predict_or_learn<true, false>, predict_or_learn<false, false>, all.p, 1);
   }
-  l->set_finish(finish);
   all.delete_prediction = nullptr;
 
   return make_base(*l);
@@ -847,21 +867,20 @@ base_learner* cbifyldf_setup(options_i& options, vw& all)
   {
     options.insert("cb_explore_adf", "");
   }
-  options.insert("cb_min_cost", to_string(data->loss0));
-  options.insert("cb_max_cost", to_string(data->loss1));
+  options.insert("cb_min_cost", std::to_string(data->loss0));
+  options.insert("cb_max_cost", std::to_string(data->loss1));
 
   if (options.was_supplied("baseline"))
   {
-    stringstream ss;
-    ss << max<float>(abs(data->loss0), abs(data->loss1)) / (data->loss1 - data->loss0);
+    std::stringstream ss;
+    ss << std::max(std::abs(data->loss0), std::abs(data->loss1)) / (data->loss1 - data->loss0);
     options.insert("lr_multiplier", ss.str());
   }
 
   multi_learner* base = as_multiline(setup_base(options, all));
   learner<cbify, multi_ex>& l = init_learner(
-      data, base, do_actual_learning_ldf<true>, do_actual_learning_ldf<false>, 1, prediction_type::multiclass);
+      data, base, do_actual_learning_ldf<true>, do_actual_learning_ldf<false>, 1, prediction_type_t::multiclass);
 
-  l.set_finish(finish);
   l.set_finish_example(finish_multiline_example);
   all.p->lp = COST_SENSITIVE::cs_label;
   all.delete_prediction = nullptr;

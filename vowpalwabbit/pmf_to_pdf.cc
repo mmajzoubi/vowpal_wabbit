@@ -226,8 +226,7 @@ namespace VW { namespace pmf_to_pdf {
       THROW("error: Bandwidth must be >= 1");
     }
 
-    learner<pmf_to_pdf::pdf_data, example>& l = init_learner(data, as_singleline(setup_base(options, all)), learn,
-        predict, 1, prediction_type::prob_dist);
+    learner<pmf_to_pdf::pdf_data, example>& l = init_learner(data, as_singleline(setup_base(options, all)), learn, predict, 1, prediction_type_t::prob_dist);
 
     l.set_finish(finish);
 

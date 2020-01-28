@@ -1,14 +1,10 @@
-/*
-   Copyright (c) by respective owners including Yahoo!, Microsoft, and
-   individual contributors. All rights reserved.  Released under a BSD (revised)
-   license as described in the file LICENSE.
-   */
+// Copyright (c) by respective owners including Yahoo!, Microsoft, and
+// individual contributors. All rights reserved. Released under a BSD (revised)
+// license as described in the file LICENSE.
 #include <string>
 #include "correctedMath.h"
 #include "gd.h"
-#include "reductions.h"
 
-using namespace std;
 using namespace LEARNER;
 using namespace VW::config;
 
@@ -70,13 +66,13 @@ inline void predict_with_confidence(uncertainty& d, const float fx, float& fw)
   float uncertain = ((d.b.data.ftrl_beta + sqrtf_ng2) / d.b.data.ftrl_alpha + d.b.data.l2_lambda);
   d.score += (1 / uncertain) * sign(fx);
 }
-
 float sensitivity(ftrl& b, base_learner& /* base */, example& ec)
 {
   uncertainty uncetain(b);
   GD::foreach_feature<uncertainty, predict_with_confidence>(*(b.all), ec, uncetain);
   return uncetain.score;
 }
+
 template <bool audit>
 void predict(ftrl& b, single_learner&, example& ec)
 {
@@ -151,7 +147,7 @@ void inner_update_pistol_state_and_predict(update_data& d, float x, float& wref)
 
   float squared_theta = w[W_ZT] * w[W_ZT];
   float tmp = 1.f / (d.ftrl_alpha * w[W_MX] * (w[W_G2] + w[W_MX]));
-  w[W_XT] = sqrt(w[W_G2]) * d.ftrl_beta * w[W_ZT] * correctedExp(squared_theta / 2.f * tmp) * tmp;
+  w[W_XT] = std::sqrt(w[W_G2]) * d.ftrl_beta * w[W_ZT] * correctedExp(squared_theta / 2.f * tmp) * tmp;
 
   d.predict += w[W_XT] * x;
 }
@@ -351,10 +347,10 @@ void save_load(ftrl& b, io_buf& model_file, bool read, bool text)
   if (read)
     initialize_regressor(*all);
 
-  if (model_file.files.size() > 0)
+  if (!model_file.files.empty())
   {
     bool resume = all->save_resume;
-    stringstream msg;
+    std::stringstream msg;
     msg << ":" << resume << "\n";
     bin_text_read_write_fixed(model_file, (char*)&resume, sizeof(resume), "", read, msg, text);
 
@@ -423,7 +419,7 @@ base_learner* ftrl_setup(options_i& options, vw& all)
 
   void (*learn_ptr)(ftrl&, single_learner&, example&) = nullptr;
 
-  string algorithm_name;
+  std::string algorithm_name;
   if (ftrl_option)
   {
     algorithm_name = "Proximal-FTRL";
@@ -456,10 +452,10 @@ base_learner* ftrl_setup(options_i& options, vw& all)
 
   if (!all.quiet)
   {
-    cerr << "Enabling FTRL based optimization" << endl;
-    cerr << "Algorithm used: " << algorithm_name << endl;
-    cerr << "ftrl_alpha = " << b->ftrl_alpha << endl;
-    cerr << "ftrl_beta = " << b->ftrl_beta << endl;
+    std::cerr << "Enabling FTRL based optimization" << std::endl;
+    std::cerr << "Algorithm used: " << algorithm_name << std::endl;
+    std::cerr << "ftrl_alpha = " << b->ftrl_alpha << std::endl;
+    std::cerr << "ftrl_beta = " << b->ftrl_beta << std::endl;
   }
 
   if (!all.holdout_set_off)

@@ -284,7 +284,7 @@ void predict(offset_tree& ot, single_learner& base, example& ec)
     all.delete_prediction = ACTION_SCORE::delete_action_scores;
 
     learner<offset_tree, example>& l = init_learner(
-        otree, as_singleline(base), learn, predict, otree->learner_count(), prediction_type::action_probs);
+        otree, as_singleline(base), learn, predict, otree->learner_count(), prediction_type_t::action_probs);
 
     return make_base(l);
   }

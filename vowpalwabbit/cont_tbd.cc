@@ -4,8 +4,6 @@
 #include <explore.h>
 #include "api_status.h"
 #include "err_constants.h"
-#include "cb_label_parser.h"
-#include "rand48.h"
 
 using std::cerr;
 using std::endl;
@@ -31,18 +29,18 @@ namespace VW { namespace continuous_action {
     int learn(example& ec, const continuous_label& lbl, api_status* status);
     int predict(example& ec, api_status* status);
 
-    void init(single_learner* p_base, uint64_t* p_rand_state);
+    void init(single_learner* p_base, std::shared_ptr<rand_state>& p_rand_state);
 
     ~cont_tbd();
   private:
     single_learner* _base;
     VW::actions_pdf::pdf _pred_prob_dist;
-    uint64_t* _p_rand_state;
+    std::shared_ptr<rand_state> _p_rand_state;
   };
 
   namespace lbl_parser {
 
-    void parse_label(parser* p, shared_data* sd, void* v, v_array<substring>& words)
+    void parse_label(parser* p, shared_data* sd, void* v, v_array<VW::string_view>& words)
     {
       auto ld = static_cast<continuous_label*>(v);
       ld->costs.clear();
@@ -54,19 +52,19 @@ namespace VW { namespace continuous_action {
         if (p->parse_name.empty() || p->parse_name.size() > 3)
           THROW("malformed cost specification: " << p->parse_name);
 
-        f.action = float_of_substring(p->parse_name[0]);
+        f.action = float_of_string(p->parse_name[0]);
 
         if (p->parse_name.size() > 1)
-          f.cost = float_of_substring(p->parse_name[1]);
+          f.cost = float_of_string(p->parse_name[1]);
 
-        if (nanpattern(f.cost))
+        if (std::isnan(f.cost))
           THROW("error NaN cost (" << p->parse_name[1] << " for action: " << p->parse_name[0]);
 
         f.probability = .0;
         if (p->parse_name.size() > 2)
-          f.probability = float_of_substring(p->parse_name[2]);
+          f.probability = float_of_string(p->parse_name[2]);
 
-        if (nanpattern(f.probability))
+        if (std::isnan(f.probability))
           THROW("error NaN probability (" << p->parse_name[2] << " for action: " << p->parse_name[0]);
 
         if (f.probability > 1.0)
@@ -84,16 +82,105 @@ namespace VW { namespace continuous_action {
       }
     }
 
-    label_parser cont_tbd_label_parser = {
-      CB::default_label<continuous_label>,
-      parse_label,
-      CB::cache_label<continuous_label, continuous_label_elm>,
-      CB::read_cached_label<continuous_label,continuous_label_elm>,
-      CB::delete_label<continuous_label>,
-      CB::weight, CB::copy_label<continuous_label>,
-      CB::is_test_label<continuous_label>,
-      sizeof(continuous_label)};
+    void default_label(void* v)
+    {
+      auto ld = (continuous_label*)v;
+      ld->costs.clear();
+    }
 
+    char* bufcache_label(continuous_label* ld, char* c)
+    {
+      *(size_t*)c = ld->costs.size();
+      c += sizeof(size_t);
+      for (size_t i = 0; i < ld->costs.size(); i++)
+      {
+        *(continuous_label_elm*)c = ld->costs[i];
+        c += sizeof(continuous_label_elm);
+      }
+      return c;
+    }
+
+    char* bufread_label(continuous_label* ld, char* c, io_buf& cache)
+    {
+      size_t num = *(size_t*)c;
+      ld->costs.clear();
+      c += sizeof(size_t);
+      size_t total = sizeof(continuous_label) * num;
+      if (cache.buf_read(c, total) < total)
+      {
+        std::cout << "error in demarshal of cost data" << std::endl;
+        return c;
+      }
+      for (size_t i = 0; i < num; i++)
+      {
+        continuous_label_elm temp = *(continuous_label_elm*)c;
+        c += sizeof(continuous_label_elm);
+        ld->costs.push_back(temp);
+      }
+      return c;
+    }
+
+    size_t read_cached_label(shared_data*, void* v, io_buf& cache)
+    {
+      auto ld = (continuous_label*)v;
+      ld->costs.clear();
+      char* c;
+      size_t total = sizeof(size_t);
+      if (cache.buf_read(c, total) < total)
+        return 0;
+      bufread_label(ld, c, cache);
+
+      return total;
+    }
+
+
+    void cache_label(void* v, io_buf& cache)
+    {
+      char* c;
+      auto ld = (continuous_label*)v;
+      cache.buf_write(c, sizeof(size_t) + sizeof(continuous_label_elm) * ld->costs.size());
+      bufcache_label(ld, c);
+    }
+
+    void delete_label(void* v)
+    {
+      auto ld = (continuous_label*)v;
+      ld->costs.delete_v();
+    }
+
+    float weight(void* v)
+    {
+      return 1.f;
+    }
+
+    void copy_label(void* dst, void* src)
+    {
+      auto ldD = (continuous_label*)dst;
+      auto ldS = (continuous_label*)src;
+      copy_array(ldD->costs, ldS->costs);
+    }
+
+    bool is_test_label(void* v)
+    {
+      auto ld = (continuous_label*)v;
+      if (ld->costs.size() == 0)
+        return true;
+      for (auto const& cost : ld->costs)
+        if (FLT_MAX != cost.cost && cost.probability > 0.)
+          return false;
+      return true;
+    }
+
+    label_parser cont_tbd_label_parser = {
+      default_label,
+      parse_label,
+      cache_label,
+      read_cached_label,
+      delete_label,
+      weight,
+      copy_label,
+      is_test_label,
+      sizeof(continuous_label)};
   }
 
   int cont_tbd::learn(example& ec, const continuous_label& lbl, api_status* status = nullptr)
@@ -132,7 +219,7 @@ namespace VW { namespace continuous_action {
     float chosen_action;
     // after having the function that samples the pdf and returns back a continuous action
     if (S_EXPLORATION_OK !=
-        exploration::sample_after_normalizing(*_p_rand_state, begin_probs(ec.pred.prob_dist),
+        exploration::sample_after_normalizing(_p_rand_state->get_current_state(), begin_probs(ec.pred.prob_dist),
             one_to_end_probs(ec.pred.prob_dist), ec.pred.prob_dist[0].action,
             ec.pred.prob_dist[ec.pred.prob_dist.size() - 1].action, chosen_action))
     {
@@ -140,7 +227,7 @@ namespace VW { namespace continuous_action {
     }
 
     // Advance the random state
-    merand48(*_p_rand_state);
+    _p_rand_state->get_and_update_random();
 
     // Save prob_dist in case it was re-allocated in base reduction chain
     _pred_prob_dist = ec.pred.prob_dist;
@@ -151,7 +238,7 @@ namespace VW { namespace continuous_action {
     return error_code::success;
   }
 
-  void cont_tbd::init(single_learner* p_base, uint64_t* p_rand_state)
+  void cont_tbd::init(single_learner* p_base, std::shared_ptr<rand_state>& p_rand_state)
   {
     _base = p_base;
     _p_rand_state = p_rand_state;
@@ -278,15 +365,14 @@ namespace VW { namespace continuous_action {
 
     LEARNER::base_learner* p_base = setup_base(options, all);
     auto p_reduction = scoped_calloc_or_throw<cont_tbd>();
-    p_reduction->init(as_singleline(p_base), &all.random_state);
+    p_reduction->init(as_singleline(p_base), all.get_random_state());
 
     LEARNER::learner<cont_tbd, example>& l = init_learner(
       p_reduction,
       as_singleline(p_base),
       predict_or_learn<true>,
       predict_or_learn<false>,
-      1,
-      prediction_type::prob_dist);
+      1, prediction_type_t::prob_dist);
 
     l.set_finish_example(finish_example);
 

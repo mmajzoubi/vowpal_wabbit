@@ -1,9 +1,7 @@
-/*
-Copyright (c) by respective owners including Yahoo!, Microsoft, and
-individual contributors. All rights reserved.  Released under a BSD (revised)
-license as described in the file LICENSE.
- */
-#include <stdint.h>
+// Copyright (c) by respective owners including Yahoo!, Microsoft, and
+// individual contributors. All rights reserved. Released under a BSD (revised)
+// license as described in the file LICENSE.
+#include <cstdint>
 #include <algorithm>
 
 #include "gd.h"
@@ -174,7 +172,7 @@ flat_example* flatten_example(vw& all, example* ec)
     ffs.mask = (uint64_t)LONG_MAX >> all.weights.stride_shift();
   GD::foreach_feature<full_features_and_source, uint64_t, vec_ffs_store>(all, *ec, ffs);
 
-  fec.fs = ffs.fs;
+  std::swap(fec.fs, ffs.fs);
 
   return &fec;
 }
@@ -192,7 +190,7 @@ void free_flatten_example(flat_example* fec)
   // note: The label memory should be freed by by freeing the original example.
   if (fec)
   {
-    fec->fs.delete_v();
+    fec->fs.~features();
     if (fec->tag_len > 0)
       free(fec->tag);
     free(fec);
@@ -332,25 +330,22 @@ void dealloc_example(void (*delete_label)(void*), example& ec, void (*delete_pre
 
   if (ec.passthrough)
   {
-    ec.passthrough->delete_v();
     delete ec.passthrough;
   }
 
-  for (size_t j = 0; j < 256; j++) ec.feature_space[j].delete_v();
-
   ec.indices.delete_v();
+  ec.~example();
 }
 
 void finish_example(vw&, example&);
 void clean_example(vw&, example&, bool rewind);
 
-void clear_seq_and_finish_examples(vw& all, multi_ex& ec_seq)
+void finish_example(vw& all, multi_ex& ec_seq)
 {
-  if (ec_seq.size() > 0)
+  if (!ec_seq.empty())
     for (example* ecc : ec_seq)
       if (ecc->in_use)
         VW::finish_example(all, *ecc);
-  ec_seq.clear();
 }
 
 void return_multiple_example(vw& all, v_array<example*>& examples)

@@ -1,11 +1,9 @@
-/*
-Copyright (c) by respective owners including Yahoo!, Microsoft, and
-individual contributors. All rights reserved.  Released under a BSD
-license as described in the file LICENSE.
-*/
+// Copyright (c) by respective owners including Yahoo!, Microsoft, and
+// individual contributors. All rights reserved. Released under a BSD (revised)
+// license as described in the file LICENSE.
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 #include "constant.h"
 #include "feature_group.h"
 #include <vector>
@@ -20,7 +18,7 @@ namespace INTERACTIONS
  * Previous behaviour was: include interactions of feature with itself only if its value != value^2.
  *
  */
-const bool feature_self_interactions = true;
+constexpr bool feature_self_interactions = true;
 // must return logical expression
 /*old: ft_value != 1.0 && feature_self_interactions_for_value_other_than_1*/
 #define PROCESS_SELF_INTERACTIONS(ft_value) feature_self_interactions
@@ -99,7 +97,7 @@ inline void generate_interactions(std::vector<std::string>& interactions, bool p
     R& dat,
     W& weights)  // default value removed to eliminate ambiguity in old complers
 {
-  features* features_data = ec.feature_space;
+  features* features_data = ec.feature_space.data();
 
   // often used values
   const uint64_t offset = ec.ft_offset;
@@ -261,7 +259,8 @@ inline void generate_interactions(std::vector<std::string>& interactions, bool p
             if (!PROCESS_SELF_INTERACTIONS((*fgd2->ft_arr).values[loop_end - margin]))
             {
               ++margin;  // otherwise margin can't be increased
-              if ((must_skip_interaction = (loop_end < margin)))
+              must_skip_interaction = loop_end < margin;
+              if (must_skip_interaction)
                 break;
             }
 
