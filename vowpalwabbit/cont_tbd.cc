@@ -40,7 +40,7 @@ namespace VW { namespace continuous_action {
 
   namespace lbl_parser {
 
-    void parse_label(parser* p, shared_data* sd, void* v, v_array<VW::string_view>& words)
+    void parse_label(parser* p, shared_data*, void* v, v_array<VW::string_view>& words)
     {
       auto ld = static_cast<continuous_label*>(v);
       ld->costs.clear();

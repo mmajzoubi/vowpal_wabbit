@@ -8,7 +8,7 @@ using namespace LEARNER;
 using namespace VW;
 using namespace VW::config;
 
-VW_DEBUG_ENABLE(false);
+VW_DEBUG_ENABLE(false)
 
 namespace VW { namespace pmf_to_pdf {
 

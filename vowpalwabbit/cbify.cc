@@ -26,7 +26,7 @@ using std::endl;
 
 struct cbify;
 
-VW_DEBUG_ENABLE(false);
+VW_DEBUG_ENABLE(false)
 
 struct cbify_adf_data
 {
@@ -661,7 +661,7 @@ void output_cb_reg_predictions(
   {
     if (f > 0)
     {
-      size_t t = io_buf::write_file_or_socket(f, str.c_str(), str.size());
+      io_buf::write_file_or_socket(f, str.c_str(), str.size());
     }
   }
 }
